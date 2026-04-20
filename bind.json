@@ -1,10 +1,10 @@
 {
     "keybinds": [
         "q",
-        ",",
+        "shift",
         "/",
         "."
     ],
-    "port": "8070",
+    "port": "6000",
     "backend": "evdev"
 }

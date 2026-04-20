@@ -333,10 +333,16 @@ class FNFListener:
             self.save_state()
             self.running = True
             self.start_btn.config(text="STOP", bg="#e74c3c", activebackground="#e74c3c")
+            self.settings_btn.config(state="disabled")
+            self.port_entry.config(state="disabled")
+            self.root.title(f"Listening on port {self.port_entry.get()}")
             threading.Thread(target=self.udp_worker, daemon=True).start()
         else:
             self.running = False
             self.start_btn.config(text="START", bg="#2ecc71", activebackground="#2ecc71")
+            self.port_entry.config(state="normal")
+            self.settings_btn.config(state="normal")
+            self.root.title("FNF Listener")
 
     def udp_worker(self):
         port = int(self.port_entry.get())
