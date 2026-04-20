@@ -313,6 +313,11 @@ class FNFListener:
         self.modal_overlay.place_forget()
 
     def start_key_listen(self, idx):
+        if self.listening_idx == idx:
+            self.cancel_key_listen()
+            return
+        if self.listening_idx is not None:
+            self.cancel_key_listen()
         self.listening_idx = idx
         self.key_buttons[idx].config(text="...")
         self.root.bind("<Key>", self.assign_key)
@@ -340,6 +345,7 @@ class FNFListener:
             self.root.unbind("<Key>")
 
     def toggle_service(self):
+        self.cancel_key_listen()
         if not self.running:
             port_str = self.port_entry.get().strip()
             if not port_str or not port_str.isdigit() or not (1 <= int(port_str) <= 65535):
@@ -348,6 +354,8 @@ class FNFListener:
             self.save_state()
             self.running = True
             self.start_btn.config(text="STOP", bg="#e74c3c", activebackground="#e74c3c")
+            for btn in self.key_buttons:
+                btn.config(state="disabled")
             self.settings_btn.config(state="disabled")
             self.port_entry.config(state="disabled")
             self.root.title(f"Listening on port {self.port_entry.get()}")
@@ -356,6 +364,8 @@ class FNFListener:
             self.running = False
             self.start_btn.config(text="START", bg="#2ecc71", activebackground="#2ecc71")
             self.port_entry.config(state="normal")
+            for btn in self.key_buttons:
+                btn.config(state="normal")
             self.settings_btn.config(state="normal")
             self.root.title("FNF Listener")
 
