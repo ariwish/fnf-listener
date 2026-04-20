@@ -145,14 +145,22 @@ class FNFListener:
 
     def _init_backend(self):
         global backend
+        if platform.system() != "Linux":
+            backend = "pynput"
+            if not init_pynput():
+                print("Error: pynput initialization failed.")
+            return
+
         if backend == "evdev":
             if not init_evdev():
                 init_pynput()
                 backend = "pynput"
         else:
             if not init_pynput():
-                init_evdev()
-                backend = "evdev"
+                if init_evdev():
+                    backend = "evdev"
+                else:
+                    print("Error: Both pynput and evdev initialization failed.")
 
     def _load_network_info(self):
         ip = get_local_ip()
@@ -182,10 +190,13 @@ class FNFListener:
 
             # Validate backend
             new_backend = data.get("backend", "")
-            if new_backend not in ["pynput", "evdev"]:
-                raise ValueError("Invalid backend")
             global backend
-            backend = new_backend
+            if platform.system() != "Linux":
+                backend = "pynput"
+            elif new_backend in ["pynput", "evdev"]:
+                backend = new_backend
+            else:
+                raise ValueError("Invalid backend")
 
         except Exception:
             # If corrupted or invalid, reset the file with current (default) memory state
@@ -270,7 +281,11 @@ class FNFListener:
         tk.Label(self.settings_frame, text="Input Emulator", font=self.n_font,
                  bg="#2c3e50", fg="white").pack(pady=10, padx=40)
         self.backend_var = tk.StringVar(value=backend)
-        for val, label in [("pynput", "pynput (Cross-platform)"), ("evdev", "evdev (Linux Native)")]:
+        backends = [("pynput", "pynput (Cross-platform)")]
+        if platform.system() == "Linux":
+            backends.append(("evdev", "evdev (Linux Native)"))
+
+        for val, label in backends:
             tk.Radiobutton(self.settings_frame, text=label, variable=self.backend_var, value=val,
                            bg="#2c3e50", fg="white", selectcolor="#34495e").pack(anchor="w", padx=20)
         tk.Button(self.settings_frame, text="Apply", command=self.apply_settings, width=10).pack(pady=20)
