@@ -276,10 +276,11 @@ class FNFListener:
 
         # Settings modal
         self.modal_overlay = tk.Frame(self.root, bg="#000000")
-        self.settings_frame = tk.Frame(self.modal_overlay, bg="#2c3e50",
+        settings_color = "#139E6E"
+        self.settings_frame = tk.Frame(self.modal_overlay, bg=settings_color,
                                        highlightbackground="white", highlightthickness=2)
         tk.Label(self.settings_frame, text="Input Emulator", font=self.n_font,
-                 bg="#2c3e50", fg="white").pack(pady=10, padx=40)
+                 bg=settings_color, fg="white").pack(pady=20, padx=40)
         self.backend_var = tk.StringVar(value=backend)
         backends = [("pynput", "pynput (Cross-platform)")]
         if platform.system() == "Linux":
@@ -287,7 +288,9 @@ class FNFListener:
 
         for val, label in backends:
             tk.Radiobutton(self.settings_frame, text=label, variable=self.backend_var, value=val,
-                           bg="#2c3e50", fg="white", selectcolor="#34495e").pack(anchor="w", padx=20)
+                           bg=settings_color, fg="white", selectcolor=settings_color,
+                           activebackground=settings_color, activeforeground="white",
+                           highlightthickness=0, bd=0).pack(anchor="w", padx=30, pady=5)
         tk.Button(self.settings_frame, text="Apply", command=self.apply_settings, width=10).pack(pady=20)
 
     def toggle_settings(self):
