@@ -2,9 +2,8 @@
 
 A Python-based desktop app that receives real-time UDP packets from the [FNF Controller](https://github.com/ariwish/fnf-controller) and translates them into keypresses on your PC.
 
+[demo.webm](https://github.com/user-attachments/assets/a9f3bfbc-0060-48fc-815d-0fdd36d1f7cf)
 
-
-[demo.webm](https://github.com/user-attachments/assets/cbd75649-a881-4f3e-b8a0-4590c769e90c)
 
 Note: the input is from the [FNF Controller](https://github.com/ariwish/fnf-controller)
 
