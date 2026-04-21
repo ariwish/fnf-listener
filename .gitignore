@@ -10,4 +10,6 @@ __pycache__/
 *.swo
 *.DS_Store
 build/
+dist/
+.spec
 bind.json
