@@ -1,4 +1,4 @@
-# FNF Listener
+# ![logo](https://github.com/user-attachments/assets/04bf9cb3-96c3-452d-bb10-d204c7f7ec5f) FNF Listener
 
 A Python-based desktop app that receives real-time UDP packets from the [FNF Controller](https://github.com/ariwish/fnf-controller) and translates them into keypresses on your PC.
 
