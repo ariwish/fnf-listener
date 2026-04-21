@@ -1,24 +1,25 @@
 # FNF Listener
 
-**FNF Listener** is a desktop application designed to receive input signals from the [FNF Controller Mobile App](https://github.com/ariwish/fnf-controller) and translate them into keyboard presses. This allows you to play Friday Night Funkin' on your PC using your mobile device as a wireless controller.
+**FNF Listener** is a robust desktop application designed to receive input signals from the [FNF Controller Mobile App](https://github.com/ariwish/fnf-controller) and translate them into keyboard presses. This allows you to play Friday Night Funkin' (or any 4-key rhythm game) on your PC using your mobile device as a wireless, low-latency controller.
 
-## Features
+## ✨ Features
 
--   **Wireless Low-Latency Input**: Uses UDP for fast communication between your mobile device and PC.
--   **Customizable Keybinds**: Map the mobile buttons to any key on your keyboard.
+-   **Low-Latency Performance**: Optimized UDP communication with non-blocking socket handling and a high-frequency polling loop (~1ms).
+-   **Thread-Safe Architecture**: Clean separation between the networking layer and the Tkinter UI, ensuring stability and responsiveness.
+-   **Modular Design**: Input emulation logic is decoupled into a dedicated `input.py` module.
 -   **Dual Backends**:
-    -   **evdev**: Linux-native input emulation (excellent for Wayland or games requiring low-level input).
-    -   **pynput**: Cross-platform compatibility.
--   **Visual Feedback**: On-screen arrows light up in real-time when inputs are received.
--   **Auto-Discovery**: Displays your local IP address for easy connection setup on the mobile app.
--   **Persistent Settings**: Saves your port and key mapping automatically.
+    -   **evdev**: Linux-native input emulation for ultra-low latency (excellent for Wayland or competitive rhythm gaming).
+    -   **pynput**: Reliable cross-platform compatibility for Windows, macOS, and Linux.
+-   **Visual Feedback**: On-screen arrows light up in real-time as you tap on your mobile device.
+-   **Automatic State Persistence**: Your port settings and keybinds are saved automatically to `bind.json`.
+-   **Dynamic IP Monitoring**: Displays your local IP address in real-time for easy connection setup.
 
 ## 🛠️ Installation
 
 ### Prerequisites
 
 -   **Python 3.8 or higher**
--   **Linux Users**: If using the `evdev` backend, you may need to add your user to the `input` group or run with appropriate permissions to access `/dev/uinput`.
+-   **Linux Users**: To use the `evdev` backend, your user must have permissions to access `/dev/uinput` (usually by joining the `input` group).
 
 ### Steps
 
@@ -35,18 +36,30 @@
 
 ## 🎮 Usage
 
-1.  **Run the listener**:
+1.  **Launch the listener**:
     ```bash
-    python fnf_listener.py
+    python main.py
     ```
-2.  **Configure Binds**: Click the buttons below the arrows to rebind keys. Press the key you wish to assign.
+
+2.  **Configure Keybinds**:
+    - Click any key button (e.g., `Q`, `W`) to enter "listening" mode.
+    - Press the physical key on your keyboard you wish to map to that direction.
+
 3.  **Start the Service**:
-    -   Note the **IP Address** displayed at the top of the window.
-    -   Ensure the **Port** matches the one set in your mobile app (default is `8000`).
-    -   Click **START**.
-4.  **Connect the Mobile App**: Open the [FNF Controller](https://github.com/ariwish/fnf-controller) on your phone, enter the PC's IP and Port, and start playing!
+    -   Ensure the **Port** matches your mobile app configuration (default is `8000`).
+    -   Click **START**. The window title will update to show the active listening port.
 
-## FNF Controller
+4.  **Connect Mobile App**:
+    - Open the [FNF Controller](https://github.com/ariwish/fnf-controller) on your phone.
+    - Enter the **IP Address** displayed at the top of the listener window.
+    - Start playing!
 
-This project requires the mobile sender app built with Godot:
-**[FNF Controller Repository](https://github.com/ariwish/fnf-controller)**
+## 🔧 Troubleshooting
+
+-   **Socket Error**: Ensure the port is not being used by another application.
+-   **Input Not Registering**: On Linux, ensure you have the correct backend selected in settings (⚙️) and that you have permissions for `/dev/uinput`.
+-   **Firewall**: Ensure your PC's firewall allows incoming UDP traffic on your chosen port.
+
+## 🤝 Related Projects
+
+-   **[FNF Controller (Mobile App)](https://github.com/ariwish/fnf-controller)**: The Godot-based mobile application that sends the signals.

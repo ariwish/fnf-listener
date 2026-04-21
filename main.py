@@ -8,30 +8,16 @@ import sys
 import os
 import time
 import json
+from input import InputEmulator, VALID_KEYS
+
 
 # Resource path helper for PyInstaller bundles
 def resource_path(relative_path):
     base = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base, relative_path)
 
+
 SAVE_FILE = os.path.join(os.path.abspath("."), "bind.json")
-
-# Valid single-character keysyms and named keys the app supports
-VALID_KEYS = set("abcdefghijklmnopqrstuvwxyz0123456789") | {
-    "return", "tab", "space", "backspace", "escape",
-    "up", "down", "left", "right", "shift", "control", "alt", "super",
-    "delete", "home", "end", "prior", "next", "caps_lock", "insert",
-    "grave", "comma", "period", "dot", "slash", "semicolon", "apostrophe",
-    "bracketleft", "bracketright", "backslash", "minus", "equal",
-    "`", ",", ".", "/", ";", "'", "[", "]", "\\", "-", "="
-} | {f"f{i}" for i in range(1, 13)}
-
-# Backend state
-backend = "pynput" if platform.system() != "Linux" else "evdev"
-keyboard = None
-ui = None
-EVDEV_MAP = {}
-PYNPUT_MAP = {}
 
 
 def get_local_ip():
@@ -42,82 +28,8 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-
-
-def init_pynput():
-    global keyboard, PYNPUT_MAP
-    try:
-        from pynput.keyboard import Controller, Key
-        keyboard = Controller()
-        PYNPUT_MAP = {
-            "return": Key.enter, "tab": Key.tab, "space": Key.space,
-            "backspace": Key.backspace, "escape": Key.esc,
-            "up": Key.up, "down": Key.down, "left": Key.left, "right": Key.right,
-            "shift": Key.shift, "control": Key.ctrl, "alt": Key.alt, "super": Key.cmd,
-            "delete": Key.delete, "home": Key.home, "end": Key.end,
-            "prior": Key.page_up, "next": Key.page_down, "caps_lock": Key.caps_lock, "insert": Key.insert
-        }
-        symbols = {
-            "grave": "`", "comma": ",", "period": ".", "dot": ".", "slash": "/", "semicolon": ";", "apostrophe": "'",
-            "bracketleft": "[", "bracketright": "]", "backslash": "\\", "minus": "-", "equal": "="
-        }
-        for k, v in symbols.items():
-            PYNPUT_MAP[k] = v
-            PYNPUT_MAP[v] = v
-        for i in range(1, 13):
-            PYNPUT_MAP[f"f{i}"] = getattr(Key, f"f{i}", None)
-        return True
-    except ImportError:
-        return False
-
-
-def init_evdev():
-    global ui, EVDEV_MAP
-    if platform.system() != "Linux":
-        return False
-    try:
-        import evdev
-        from evdev import UInput, ecodes as e
-        EVDEV_MAP = {c: getattr(e, f"KEY_{c.upper()}") for c in "abcdefghijklmnopqrstuvwxyz0123456789"
-                     if hasattr(e, f"KEY_{c.upper()}")}
-        EVDEV_MAP.update({
-            "return": e.KEY_ENTER, "tab": e.KEY_TAB, "space": e.KEY_SPACE,
-            "backspace": e.KEY_BACKSPACE, "escape": e.KEY_ESC,
-            "up": e.KEY_UP, "down": e.KEY_DOWN, "left": e.KEY_LEFT, "right": e.KEY_RIGHT,
-            "shift": e.KEY_LEFTSHIFT, "control": e.KEY_LEFTCTRL,
-            "alt": e.KEY_LEFTALT, "super": e.KEY_LEFTMETA,
-            "delete": e.KEY_DELETE, "home": e.KEY_HOME, "end": e.KEY_END,
-            "prior": e.KEY_PAGEUP, "next": e.KEY_PAGEDOWN, "caps_lock": e.KEY_CAPSLOCK, "insert": e.KEY_INSERT
-        })
-        evdev_symbols = {
-            "grave": e.KEY_GRAVE, "`": e.KEY_GRAVE,
-            "comma": e.KEY_COMMA, ",": e.KEY_COMMA,
-            "period": e.KEY_DOT, ".": e.KEY_DOT, "dot": e.KEY_DOT,
-            "slash": e.KEY_SLASH, "/": e.KEY_SLASH,
-            "semicolon": e.KEY_SEMICOLON, ";": e.KEY_SEMICOLON,
-            "apostrophe": e.KEY_APOSTROPHE, "'": e.KEY_APOSTROPHE,
-            "bracketleft": e.KEY_LEFTBRACE, "[": e.KEY_LEFTBRACE,
-            "bracketright": e.KEY_RIGHTBRACE, "]": e.KEY_RIGHTBRACE,
-            "backslash": e.KEY_BACKSLASH, "\\": e.KEY_BACKSLASH,
-            "minus": e.KEY_MINUS, "-": e.KEY_MINUS,
-            "equal": e.KEY_EQUAL, "=": e.KEY_EQUAL
-        }
-        for k, code in evdev_symbols.items():
-            if code is not None:
-                EVDEV_MAP[k] = code
-        for i in range(1, 13):
-            val = getattr(e, f"KEY_F{i}", None)
-            if val is not None:
-                EVDEV_MAP[f"f{i}"] = val
-
-        # Filter out any None values and ensure all codes are valid
-        valid_codes = [v for v in EVDEV_MAP.values() if v is not None]
-        ui = UInput({e.EV_KEY: valid_codes}, name="fnf-udp-vkeyboard")
-        return True
-    except Exception as err:
-        print(f"Evdev init failed: {err}")
-        return False
-
+class AssetLoadError(Exception):
+    pass
 
 class FNFListener:
     def __init__(self, root):
@@ -127,44 +39,41 @@ class FNFListener:
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.running = False
+        self.emulator = InputEmulator()
+        self.stop_event = threading.Event()
         self.keybinds = ["q", "w", "o", "p"]
-        self.port = "8000"
+        self.port = 8000
         self.directions = ["left", "down", "up", "right"]
         self.n_font = ("Arial", 16, "bold")
         self.l_font = ("Arial", 24, "bold")
         self.listening_idx = None
+        self.current_ip = "........"
 
         self.load_save()
-        self._init_backend()
+        self.emulator.init_backend()
         self.load_assets()
         self.setup_ui()
 
-        # Fetch SSID in background so it doesn't delay startup
-        threading.Thread(target=self._load_network_info, daemon=True).start()
+        # Start network monitoring thread
+        self.net_thread_running = True
+        threading.Thread(target=self._network_monitor, daemon=True).start()
 
-    def _init_backend(self):
-        global backend
-        if platform.system() != "Linux":
-            backend = "pynput"
-            if not init_pynput():
-                print("Error: pynput initialization failed.")
-            return
+    def validate_port(self, port_str):
+        """Authoritative port validation."""
+        port_str = port_str.strip()
+        if port_str.isdigit() and (1 <= int(port_str) <= 65535):
+            return int(port_str)
+        return None
 
-        if backend == "evdev":
-            if not init_evdev():
-                init_pynput()
-                backend = "pynput"
-        else:
-            if not init_pynput():
-                if init_evdev():
-                    backend = "evdev"
-                else:
-                    print("Error: Both pynput and evdev initialization failed.")
-
-    def _load_network_info(self):
-        ip = get_local_ip()
-        self.root.after(0, lambda: self.canvas.itemconfig(self.net_label, text=ip))
+    def _network_monitor(self):
+        """Background thread to poll for IP changes."""
+        while self.net_thread_running:
+            new_ip = get_local_ip()
+            if new_ip != self.current_ip:
+                self.current_ip = new_ip
+                # Safely update UI from thread
+                self.root.after(0, lambda: self.canvas.itemconfig(self.net_label, text=self.current_ip))
+            time.sleep(5) # Check every 5 seconds
 
     def load_save(self):
         if not os.path.exists(SAVE_FILE):
@@ -183,18 +92,17 @@ class FNFListener:
             self.keybinds = keys
 
             # Validate port
-            port_val = str(data.get("port", ""))
-            if not port_val.isdigit() or not (1 <= int(port_val) <= 65535):
+            port_val = self.validate_port(str(data.get("port", "")))
+            if port_val is None:
                 raise ValueError("Invalid port")
             self.port = port_val
 
             # Validate backend
             new_backend = data.get("backend", "")
-            global backend
             if platform.system() != "Linux":
-                backend = "pynput"
+                self.emulator.backend = "pynput"
             elif new_backend in ["pynput", "evdev"]:
-                backend = new_backend
+                self.emulator.backend = new_backend
             else:
                 raise ValueError("Invalid backend")
 
@@ -204,15 +112,17 @@ class FNFListener:
 
     def save_state(self):
         try:
-            # Handle case where UI might not be fully initialized yet
-            port_val = self.port
+            # If UI is ready, use its value; otherwise use memory value
+            current_port = self.port
             if hasattr(self, "port_entry") and self.port_entry.winfo_exists():
-                port_val = self.port_entry.get()
+                val = self.validate_port(self.port_entry.get())
+                if val is not None:
+                    current_port = val
             
             data = {
                 "keybinds": self.keybinds,
-                "port": port_val,
-                "backend": backend
+                "port": current_port,
+                "backend": self.emulator.backend
             }
             with open(SAVE_FILE, "w") as f:
                 json.dump(data, f, indent=4)
@@ -233,15 +143,14 @@ class FNFListener:
             self.icon_img = PhotoImage(file=resource_path("assets/up_.png"))
             self.root.iconphoto(False, self.icon_img)
         except Exception as e:
-            messagebox.showerror("Asset Error", f"Failed to load assets:\n{e}")
-            self.root.destroy()
+            raise AssetLoadError(str(e))
 
     def setup_ui(self):
         self.canvas = tk.Canvas(self.root, width=900, height=500, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.canvas.create_image(0, 0, image=self.bg_img, anchor="nw")
 
-        self.net_label = self.canvas.create_text(450, 60, text="........", fill="white", font=self.l_font)
+        self.net_label = self.canvas.create_text(450, 60, text=self.current_ip, fill="white", font=self.l_font)
 
         self.arrow_widgets, self.key_buttons = {}, []
         for i, d in enumerate(self.directions):
@@ -257,7 +166,7 @@ class FNFListener:
         vcmd = (self.root.register(lambda s: s.isdigit() or s == ""), "%P")
         self.port_entry = tk.Entry(self.root, width=8, font=self.n_font, justify="center",
                                    validate="key", validatecommand=vcmd)
-        self.port_entry.insert(0, self.port)
+        self.port_entry.insert(0, str(self.port))
         self.canvas.create_window(380, 420, window=self.port_entry)
 
         self.start_btn = tk.Button(self.root, text="START", font=self.n_font,
@@ -280,8 +189,8 @@ class FNFListener:
         self.settings_frame = tk.Frame(self.modal_overlay, bg=settings_color,
                                        highlightbackground="white", highlightthickness=2)
         tk.Label(self.settings_frame, text="Input Emulator", font=self.n_font,
-                 bg=settings_color, fg="white").pack(pady=20, padx=40)
-        self.backend_var = tk.StringVar(value=backend)
+                 bg=settings_color, fg="white").pack(pady=10, padx=40)
+        self.backend_var = tk.StringVar(value=self.emulator.backend)
         backends = [("pynput", "pynput (Cross-platform)")]
         if platform.system() == "Linux":
             backends.append(("evdev", "evdev (Linux Native)"))
@@ -290,7 +199,7 @@ class FNFListener:
             tk.Radiobutton(self.settings_frame, text=label, variable=self.backend_var, value=val,
                            bg=settings_color, fg="white", selectcolor=settings_color,
                            activebackground=settings_color, activeforeground="white",
-                           highlightthickness=0, bd=0).pack(anchor="w", padx=30, pady=5)
+                           highlightthickness=0, bd=0).pack(anchor="w", padx=20)
         tk.Button(self.settings_frame, text="Apply", command=self.apply_settings, width=10).pack(pady=20)
 
     def toggle_settings(self):
@@ -302,17 +211,14 @@ class FNFListener:
             self.settings_btn.lift()
 
     def apply_settings(self):
-        global backend
         new_backend = self.backend_var.get()
-        if new_backend != backend:
-            ok = init_evdev() if new_backend == "evdev" else init_pynput()
-            if ok:
-                backend = new_backend
+        if new_backend != self.emulator.backend:
+            if self.emulator.init_backend(new_backend):
+                self.save_state()
             else:
                 messagebox.showerror("Backend Error", f"Failed to init '{new_backend}'.")
-                self.backend_var.set(backend)
+                self.backend_var.set(self.emulator.backend)
                 return
-        self.save_state()
         self.modal_overlay.place_forget()
 
     def start_key_listen(self, idx):
@@ -349,31 +255,35 @@ class FNFListener:
 
     def toggle_service(self):
         self.cancel_key_listen()
-        if not self.running:
-            port_str = self.port_entry.get().strip()
-            if not port_str or not port_str.isdigit() or not (1 <= int(port_str) <= 65535):
-                messagebox.showerror("Invalid Port", "Please enter a valid port number")
-                return
-            self.save_state()
-            self.running = True
-            self.start_btn.config(text="STOP", bg="#e74c3c", activebackground="#e74c3c")
-            for btn in self.key_buttons:
-                btn.config(state="disabled")
-            self.settings_btn.config(state="disabled")
-            self.port_entry.config(state="disabled")
-            self.root.title(f"Listening on port {self.port_entry.get()}")
-            threading.Thread(target=self.udp_worker, daemon=True).start()
-        else:
-            self.running = False
+        if not self.stop_event.is_set() and hasattr(self, "running_thread") and self.running_thread.is_alive():
+            # Stop the service
+            self.stop_event.set()
             self.start_btn.config(text="START", bg="#2ecc71", activebackground="#2ecc71")
             self.port_entry.config(state="normal")
             for btn in self.key_buttons:
                 btn.config(state="normal")
             self.settings_btn.config(state="normal")
             self.root.title("FNF Listener")
+        else:
+            # Start the service
+            port = self.validate_port(self.port_entry.get())
+            if port is None:
+                messagebox.showerror("Invalid Port", "Please enter a valid port number (1-65535)")
+                return
+            
+            self.save_state()
+            self.stop_event.clear()
+            self.start_btn.config(text="STOP", bg="#e74c3c", activebackground="#e74c3c")
+            for btn in self.key_buttons:
+                btn.config(state="disabled")
+            self.settings_btn.config(state="disabled")
+            self.port_entry.config(state="disabled")
+            self.root.title(f"Listening on port {port}")
+            self.running_thread = threading.Thread(target=self.udp_worker, args=(port,), daemon=True)
+            self.running_thread.start()
 
-    def udp_worker(self):
-        port = int(self.port_entry.get())
+    def udp_worker(self, port):
+        """Runs in a background thread to receive UDP packets."""
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
@@ -381,7 +291,7 @@ class FNFListener:
                 s.bind(("0.0.0.0", port))
                 s.setblocking(False)
                 prev_state = 0
-                while self.running:
+                while not self.stop_event.is_set():
                     processed = 0
                     while processed < 50:
                         try:
@@ -396,36 +306,41 @@ class FNFListener:
                             processed += 1
                         except (BlockingIOError, socket.error):
                             break
-                    time.sleep(0.001)
+                    self.stop_event.wait(0.001)
         except OSError as e:
-            self.running = False
             err_msg = str(e)
             self.root.after(0, lambda msg=err_msg: (
                 self.start_btn.config(text="START", bg="#2ecc71", activebackground="#2ecc71"),
+                self.port_entry.config(state="normal"),
                 messagebox.showerror("Socket Error", f"Could not bind to port {port}:\n{msg}")
             ))
 
     def handle_input(self, index, is_pressed):
+        """
+        Processes key events. 
+        NOTE: This runs on the UDP background thread. 
+        UI updates must use self.root.after. Key simulation is thread-safe for pynput/evdev.
+        """
         keysym = self.keybinds[index]
         direction = self.directions[index]
         img = self.arrow_on[direction] if is_pressed else self.arrow_off[direction]
+        
+        # Safely update UI
         self.root.after(0, lambda: self.canvas.itemconfig(self.arrow_widgets[direction], image=img))
+        
+        # Log to window title for simple debugging/feedback
+        log_msg = f"{'Pressed' if is_pressed else 'Released'} {keysym.upper()}"
+        self.root.after(0, lambda msg=log_msg: self.root.title(f"FNF Listener - {msg}"))
 
-        if backend == "evdev" and ui:
-            import evdev
-            code = EVDEV_MAP.get(keysym)
-            if code:
-                ui.write(evdev.ecodes.EV_KEY, code, 1 if is_pressed else 0)
-                ui.syn()
-        elif backend == "pynput" and keyboard:
-            k = PYNPUT_MAP.get(keysym, keysym)
-            try:
-                keyboard.press(k) if is_pressed else keyboard.release(k)
-            except Exception:
-                pass
+        if is_pressed:
+            self.emulator.press(keysym)
+        else:
+            self.emulator.release(keysym)
 
     def on_close(self):
-        self.running = False
+        self.stop_event.set()
+        self.net_thread_running = False
+        self.emulator.close()
         self.root.destroy()
 
 
@@ -434,5 +349,7 @@ if __name__ == "__main__":
         root = tk.Tk()
         app = FNFListener(root)
         root.mainloop()
+    except AssetLoadError as e:
+        messagebox.showerror("Asset Error", f"Failed to load assets:\n{e}")
     except KeyboardInterrupt:
         pass
