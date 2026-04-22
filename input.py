@@ -9,7 +9,6 @@ VALID_KEYS = set("abcdefghijklmnopqrstuvwxyz0123456789") | {
     "bracketleft", "bracketright", "backslash", "minus", "equal"
 }
 
-
 class InputEmulator:
     def __init__(self):
         self.backend = "pynput" if platform.system() != "Linux" else "evdev"

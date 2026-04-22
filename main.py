@@ -10,15 +10,12 @@ import time
 import json
 from input import InputEmulator, VALID_KEYS
 
-
 # Resource path helper for PyInstaller bundles
 def resource_path(relative_path):
     base = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base, relative_path)
 
-
 SAVE_FILE = os.path.join(os.path.abspath("."), "bind.json")
-
 
 def get_local_ip():
     try:
@@ -317,8 +314,7 @@ class FNFListener:
 
     def handle_input(self, index, is_pressed):
         """
-        Processes key events. 
-        NOTE: This runs on the UDP background thread. 
+        Processes key events. This runs on the UDP background thread. 
         UI updates must use self.root.after. Key simulation is thread-safe for pynput/evdev.
         """
         keysym = self.keybinds[index]
