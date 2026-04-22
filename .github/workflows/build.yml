@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -35,11 +35,13 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller FNF-Listener.spec
 
+      # To keep everything in a folder after unzip, we upload the specific 'dist' subfolder
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FNF-Listener-${{ matrix.os }}
           path: dist/
+          # This ensures the folder structure inside 'dist' is preserved
 
   release:
     needs: build
@@ -51,17 +53,21 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./assets
-          # This downloads ALL artifacts into ./assets/
-          # Result: ./assets/FNF-Listener-windows-latest/your-app.exe
+          path: ./release-temp
+
+      # This step zips each platform folder so they download as single files in the release
+      - name: Prepare Assets for Release
+        run: |
+          mkdir ./assets
+          cd ./release-temp
+          for dir in */; do
+            zip -r "../assets/${dir%/}.zip" "$dir"
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # The ** wildcard ensures it finds the files inside the sub-folders
-          files: |
-            ./assets/FNF-Listener-windows-latest/**
-            ./assets/FNF-Listener-ubuntu-latest/**
+          files: ./assets/*.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
