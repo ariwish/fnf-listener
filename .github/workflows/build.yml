@@ -30,8 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          # Good practice to keep the 'if' check in case you rename the file
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
 
       - name: Build with PyInstaller
         run: pyinstaller FNF-Listener.spec
