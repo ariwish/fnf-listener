@@ -1,10 +1,13 @@
-name: Build Executables
+name: Build and Release Executables
 
 on:
   push:
-    branches: [ main ]  # Runs every time you push to the main branch
+    branches: [ main ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,6 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
+          # Good practice to keep the 'if' check in case you rename the file
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Build with PyInstaller
@@ -37,3 +41,28 @@ jobs:
         with:
           name: FNF-Listener-${{ matrix.os }}
           path: dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./assets
+          # This downloads ALL artifacts into ./assets/
+          # Result: ./assets/FNF-Listener-windows-latest/your-app.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # The ** wildcard ensures it finds the files inside the sub-folders
+          files: |
+            ./assets/FNF-Listener-windows-latest/**
+            ./assets/FNF-Listener-ubuntu-latest/**
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
