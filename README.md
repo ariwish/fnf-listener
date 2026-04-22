@@ -39,11 +39,11 @@ Note: the input is from the [FNF Controller](https://github.com/ariwish/fnf-cont
 
 ## Usage
 
-1. Open the fnf listener app
+1. Open the app
 2. Put the same port at [FNF Controller](https://github.com/ariwish/fnf-controller)
-3. Note the **IP Address** is shown at the top of the window.
+3. Note: the **IP Address** is shown at the top of the window.
 4. Open the [FNF Controller](https://github.com/ariwish/fnf-controller) on your phone and enter that IP.
-5. Tap the arrows on your phone — they will register as keypresses on your PC.
+5. Tap the arrows on your phone, they will register as keypresses on your PC.
 6. Click **START** in the listener app.
 ---
 
