@@ -2,7 +2,6 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import PhotoImage, messagebox
-from PIL import Image, ImageTk
 import platform
 import sys
 import os
@@ -128,15 +127,11 @@ class FNFListener:
 
     def load_assets(self):
         try:
-            bg = Image.open(resource_path("assets/menu.png")).resize((900, 500), Image.Resampling.LANCZOS)
-            self.bg_img = ImageTk.PhotoImage(bg)
+            self.bg_img = PhotoImage(file=resource_path("assets/menu.png"))
             self.arrow_off, self.arrow_on = {}, {}
             for d in self.directions:
-                off = Image.open(resource_path(f"assets/{d}_.png"))
-                on  = Image.open(resource_path(f"assets/{d}.png"))
-                size = (int(off.width * 0.8), int(off.height * 0.8))
-                self.arrow_off[d] = ImageTk.PhotoImage(off.resize(size, Image.Resampling.LANCZOS))
-                self.arrow_on[d]  = ImageTk.PhotoImage(on.resize(size, Image.Resampling.LANCZOS))
+                self.arrow_off[d] = PhotoImage(file=resource_path(f"assets/{d}_.png"))
+                self.arrow_on[d]  = PhotoImage(file=resource_path(f"assets/{d}.png"))
             self.icon_img = PhotoImage(file=resource_path("assets/up_.png"))
             self.root.iconphoto(False, self.icon_img)
         except Exception as e:
